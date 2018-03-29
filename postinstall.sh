@@ -91,7 +91,7 @@ chmod +x /bin/gzip
 
 ## Detect if this is an OVH server by getting the global IP and checking the ASN
 if [ "$(whois -h v4.whois.cymru.com " -t $(curl ipinfo.io/ip 2> /dev/null)" | tail -n 1 | cut -d'|' -f3 | grep -i "ovh")" != "" ] ; then
-	echo "Deteted OVH Server, installing OVH RTM (real time monitoring)"
+	echo "Detected OVH Server, installing OVH RTM (real time monitoring)"
 	#http://help.ovh.co.uk/RealTimeMonitoring
 	wget ftp://ftp.ovh.net/made-in-ovh/rtm/install_rtm.sh -c -O install_rtm.sh && bash install_rtm.sh && rm install_rtm.sh
 fi
@@ -121,44 +121,75 @@ systemctl restart fail2ban
 ## Increase vzdump backup speed
 sed -i "s/#bwlimit: KBPS/bwlimit: 1024000/" /etc/vzdump.conf
 
-## Bugfix: pve 5.1 high swap usage with low memory usage
- echo "vm.swapiness=10" >> /etc/sysctl.conf
- sysctl -p
-
 ## Remove subscription banner
-#sed -i "s|if (data.status !== 'Active')|if (data.status == 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
+sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
 # create a daily cron to make sure the banner does not re-appear
-#cat > /etc/cron.daily/proxmox-nosub <<EOF
-##!/bin/sh
-#sed -i "s|if (data.status !== 'Active')|if (data.status == 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
-#EOF
-#chmod 755 /etc/cron.daily/proxmox-nosub
+cat > /etc/cron.daily/proxmox-nosub <<EOF
+#!/bin/sh
+sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
+EOF
+chmod 755 /etc/cron.daily/proxmox-nosub
 
-## Pretty MOTD
-if ! grep -q https "/etc/motd" ; then
-cat > /etc/motd.new <<'EOF'
-   This system is managed by:            https://eXtremeSHOK.com
-     __   ___                            _____ _    _  ____  _  __
-     \ \ / / |                          / ____| |  | |/ __ \| |/ /
-  ___ \ V /| |_ _ __ ___ _ __ ___   ___| (___ | |__| | |  | | ' /
- / _ \ > < | __| '__/ _ \ '_ ` _ \ / _ \\___ \|  __  | |  | |  <
-|  __// . \| |_| | |  __/ | | | | |  __/____) | |  | | |__| | . \
- \___/_/ \_\\__|_|  \___|_| |_| |_|\___|_____/|_|  |_|\____/|_|\_\
+# ## Pretty MOTD
+# if ! grep -q https "/etc/motd" ; then
+# cat > /etc/motd.new <<'EOF'
+#    This system is managed by:            https://eXtremeSHOK.com
+#      __   ___                            _____ _    _  ____  _  __
+#      \ \ / / |                          / ____| |  | |/ __ \| |/ /
+#   ___ \ V /| |_ _ __ ___ _ __ ___   ___| (___ | |__| | |  | | ' /
+#  / _ \ > < | __| '__/ _ \ '_ ` _ \ / _ \\___ \|  __  | |  | |  <
+# |  __// . \| |_| | |  __/ | | | | |  __/____) | |  | | |__| | . \
+#  \___/_/ \_\\__|_|  \___|_| |_| |_|\___|_____/|_|  |_|\____/|_|\_\
+#
+#
+# EOF
+# 	cat /etc/motd >> /etc/motd.new
+# 	mv /etc/motd.new /etc/motd
+# fi
 
+# System tuning
+
+## Bugfix: pve 5.1 high swap usage with low memory usage
+cat <<'EOF' >> /etc/sysctl.conf
+# Start using SWAP when RAM is used at 90 percent, not before
+# vm.swappiness = 60 # default value
+# vm.swappiness = 5 # recommended
+vm.swappiness = 10
 
 EOF
-	cat /etc/motd >> /etc/motd.new
-	mv /etc/motd.new /etc/motd
-fi
-
-## Increase max user watches
-# BUG FIX : No space left on device
-echo 1048576 > /proc/sys/fs/inotify/max_user_watches
-echo "fs.inotify.max_user_watches=1048576" >> /etc/sysctl.conf
 sysctl -p /etc/sysctl.conf
+
+## Increase max user watches (default is 8192)
+# BUG FIX : No space left on device
+cat <<'EOF' >> /etc/sysctl.conf
+# Increase max user watches
+# fs.inotify.max_user_watches = 8192 # default value
+# fs.inotify.max_user_watches = 100000 # more
+fs.inotify.max_user_watches = 1048576 # even more
+
+EOF
+# echo 1048576 > /proc/sys/fs/inotify/max_user_watches
+sysctl -p /etc/sysctl.conf
+
+### zimbra tuning: http://core-us.fr/tuning-zimbra/
+# Check default values before changing as tcp_tw_reuse seems to fool everything
+# cat <<'EOF' >> /etc/sysctl.conf
+# # zimbra tuning: http://core-us.fr/tuning-zimbra/
+#
+# #net.ipv4.tcp_fin_timeout = 60
+# net.ipv4.tcp_fin_timeout = 50
+# ##net.ipv4.tcp_tw_reuse = 0
+# #net.ipv4.tcp_tw_reuse = 1 # attention cette option fout le bordel: https://vincent.bernat.im/fr/blog/2014-tcp-time-wait-state-linux
+# net.ipv4.tcp_tw_reuse = 0
+# ##net.ipv4.tcp_tw_recycle = 0
+# #net.ipv4.tcp_tw_recycle = 1 # attention cette option fout le bordel: https://vincent.bernat.im/fr/blog/2014-tcp-time-wait-state-linux
+# net.ipv4.tcp_tw_recycle = 0
+#
+# EOF
 
 ## Increase max FD limit / ulimit
 cat <<'EOF' >> /etc/security/limits.conf
+# Increase max FD limit / ulimit
 * soft     nproc          131072
 * hard     nproc          131072
 * soft     nofile         131072
@@ -171,8 +202,9 @@ EOF
 
 ## Increase kernel max Key limit
 cat <<'EOF' > /etc/sysctl.d/60-maxkeys.conf
-kernel.keys.root_maxkeys=1000000
-kernel.keys.maxkeys=1000000
+# Increase kernel max Key limit
+kernel.keys.root_maxkeys = 1000000
+kernel.keys.maxkeys = 1000000
 EOF
 
 ## Script Finish
