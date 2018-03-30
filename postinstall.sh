@@ -28,15 +28,15 @@
 
 ## disable enterprise proxmox repo
 if [ -f /etc/apt/sources.list.d/pve-enterprise.list ]; then
-	echo -e "#deb https://enterprise.proxmox.com/debian stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
+	echo -e "#deb https://enterprise.proxmox.com/debian/pve stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
 fi
 ## enable public proxmox repo
 if [ ! -f /etc/apt/sources.list.d/pve-public-repo.list ] && [ ! -f /etc/apt/sources.list.d/pve-install-repo.list ] ; then
-	echo -e "deb http://download.proxmox.com/debian stretch pve-no-subscription\n" > /etc/apt/sources.list.d/pve-public-repo.list
+	echo -e "deb http://download.proxmox.com/debian/pve stretch pve-no-subscription\n" > /etc/apt/sources.list.d/pve-public-repo.list
 fi
 
 ## Add non-free to sources
-sed -i "s/main contrib/main non-free contrib/g" /etc/apt/sources.list
+sed -i "s/main\( contrib\)\?$/main contrib non-free/g" /etc/apt/sources.list
 
 ## Install the latest ceph provided by proxmox
 echo "deb http://download.proxmox.com/debian/ceph-luminous stretch main" > /etc/apt/sources.list.d/ceph.list
