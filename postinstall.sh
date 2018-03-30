@@ -38,15 +38,6 @@ fi
 ## Add non-free to sources
 sed -i "s/main\( contrib\)\?$/main contrib non-free/g" /etc/apt/sources.list
 
-## Install the latest ceph provided by proxmox
-echo "deb http://download.proxmox.com/debian/ceph-luminous stretch main" > /etc/apt/sources.list.d/ceph.list
-
-## Bugfix frozen/hung update caused by broken ceph systemd script
-if [ -f /etc/systemd/system/ceph.service ]; then
-	sed -i "s/=ceph.target/=multi-user.target/" /etc/systemd/system/ceph.service
-	systemctl daemon-reload; systemctl disable ceph.service; systemctl enable ceph.service; systemctl daemon-reexec
-fi
-
 ## Refresh the package lists
 apt-get update
 
@@ -54,11 +45,12 @@ apt-get update
 apt-get -y install debian-archive-keyring
 
 ## Update proxmox and install various system utils
-apt-get -y dist-upgrade --force-yes
+apt-get -y dist-upgrade # --force-yes
+
 pveam update
 
 ## Fix no public key error for debian repo
-apt-get -y install debian-archive-keyring
+# apt-get -y install debian-archive-keyring
 
 ## Remove no longer required packages and purge old cached updates
 apt-get -y autoremove
@@ -70,8 +62,8 @@ apt-get install -y openvswitch-switch
 ## Install zfs support, appears to be missing on some Proxmox installs.
 apt-get install -y zfsutils
 
-## Install ceph support
-pveceph install
+# ## Install the latest ceph provided by proxmox
+echo y | pveceph install --version luminous
 
 ## Install common system utilities
 apt-get install -y whois omping wget axel nano ntp pigz net-tools htop iptraf iotop iftop iperf vim vim-nox screen unzip zip software-properties-common aptitude curl dos2unix dialog mlocate build-essential git
