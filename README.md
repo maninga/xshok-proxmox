@@ -22,7 +22,7 @@ Recommeneded partitioning scheme:
 * Wait a few mins
 * Connect via ssh/terminal to the rescue system running on your server and run the following
 ````
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/hetzner-install.sh -c -O install-hetzner.sh && chmod 777 hetzner-install.sh && ./install-hetzner.sh 
+wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/hetzner-install.sh -c -O install-hetzner.sh && chmod 777 hetzner-install.sh && ./install-hetzner.sh
 ````
 * Reboot
 * Connect via ssh/terminal to the new Proxmox system running on your server and run the following
@@ -52,13 +52,13 @@ Select install for the specific server, via the ovh manager
 * * 3	LV	Ext4	/var/lib/vz	data	1	REMAINING GB *(use all the remaining space)*
 * --NEXT-->
 * Hostname: server.fqdn.com
-* Installation script (URL): https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/install-post.sh
+* Installation script (URL): https://raw.githubusercontent.com/maninga/xshok-proxmox/master/install-post.sh
 * Script return value: 0
 * SSH keys: *(always suggested, however if this value is used a webinterface login will not work without setting a root password in shell)*
 * --CONFIRM-->
 After installation, Connect via ssh/terminal to the new Proxmox system running on your server and run the following
 ````
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/lvm2zfs.sh -c -O lvm2zfs.sh && bash lvm2zfs.sh && rm lvm2zfs.sh
+wget https://raw.githubusercontent.com/maninga/xshok-proxmox/master/lvm2zfs.sh -c -O lvm2zfs.sh && bash lvm2zfs.sh && rm lvm2zfs.sh
 ````
 * Reboot
 * Post Install: login via ssh as root and create a password, which will be used for the webinterface when logging in with pam authentication
@@ -82,20 +82,20 @@ wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/lvm2zfs.
 * Detect AMD EPYC CPU and install kernel 4.15
 * Detect AMD EPYC CPU and Apply EPYC fix to kernel
 
-https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/install-post.sh
+https://raw.githubusercontent.com/maninga/xshok-proxmox/master/install-post.sh
 
 return value is 0
 
 Or run *install-post.sh* after installation
 
 ```
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/postinstall.sh -c -O postinstall.sh && bash postinstall.sh && rm postinstall.sh
+wget https://raw.githubusercontent.com/maninga/xshok-proxmox/master/install-post.sh -c -O install-post.sh && bash install-post.sh && rm install-post.sh
 ```
 
 # Enable Docker support for an LXC container (pve-enable-lxc-docker.sh) *optional*
 There can be security implications as the LXC container is running in a higher privileged mode.
 ```
-curl https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/pve-enable-lxc-docker.sh --output /usr/sbin/pve-enable-lxc-docker && chmod +x /usr/sbin/pve-enable-lxc-docker
+curl https://raw.githubusercontent.com/maninga/xshok-proxmox/master/pve-enable-lxc-docker.sh --output /usr/sbin/pve-enable-lxc-docker && chmod +x /usr/sbin/pve-enable-lxc-docker
  pve-enable-lxc-docker container_id
 ```
 
@@ -111,7 +111,7 @@ Converts the storage LVM into a ZFS raid 1 (mirror)
 
 **NOTE: WILL  DESTROY ALL DATA ON /var/lib/vz**
 ```
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/lvm2zfs.sh -c -O lvm2zfs.sh && bash lvm2zfs.sh && rm lvm2zfs.sh
+wget https://raw.githubusercontent.com/maninga/xshok-proxmox/master/lvm2zfs.sh -c -O lvm2zfs.sh && bash lvm2zfs.sh && rm lvm2zfs.sh
 ```
 
 # Create ZFS from devices (createzfs.sh) *optional*
@@ -125,21 +125,21 @@ Creates a zfs pool from specified devices
 
 **NOTE: WILL  DESTROY ALL DATA ON SPECIFIED DEVICES**
 ```
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/createzfs.sh -c -O createzfs.sh
+wget https://raw.githubusercontent.com/maninga/xshok-proxmox/master/createzfs.sh -c -O createzfs.sh
 bash createzfs.sh poolname /dev/device1 /dev/device2
 ```
 
 #  Creates default routes to allow for extra ip ranges to be used (addiprange.sh) *optional*
 If no interface is specified the default gateway interface will be detected and used.
 ```
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/addiprange.sh -c -O addiprange.sh
+wget https://raw.githubusercontent.com/maninga/xshok-proxmox/master/addiprange.sh -c -O addiprange.sh
 bash addiprange.sh ip.xx.xx.xx/cidr interface_optional
 ```
 
 # Create Private mesh vpn/network (tincvpn.sh)
 tinc private mesh vpn/network which supports multicast, ideal for private cluster communication
 ```
-wget https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/tincvpn.sh -c -O tincvpn.sh && bash tincvpn.sh -h
+wget https://raw.githubusercontent.com/maninga/xshok-proxmox/master/tincvpn.sh -c -O tincvpn.sh && bash tincvpn.sh -h
 ```
 ## Example for 3 node Cluster
 ### First Host (hostname: host1)

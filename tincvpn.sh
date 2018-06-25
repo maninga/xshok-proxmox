@@ -55,15 +55,15 @@ do
 done
 
 if [ "$my_address" == "" ] ; then
-	echo "Error: address not detected, please use -a <public ip address>"
-	exit
+  echo "Error: address not detected, please use -a <public ip address>"
+  exit
 fi
 
 if [ "$reset" == "yes" ] ; then
-	echo "Resetting"
-	systemctl stop tinc.service
-	pkill -9 tincd
-	rm -rf /etc/tinc/
+  echo "Resetting"
+  systemctl stop tinc.service
+  pkill -9 tincd
+  rm -rf /etc/tinc/
 fi
 
 
@@ -94,15 +94,15 @@ touch /etc/tinc/vpn/rsa_key.pub
 touch /etc/tinc/vpn/rsa_key.priv
 
 if [ "$(grep "BEGIN RSA PUBLIC KEY" /etc/tinc/vpn/rssa_key.pub 2> /dev/null)" != "" ] ; then
-	if [ "$(grep "BEGIN RSA PRIVATE KEY" /etc/tinc/vpn/rssa_key.priv 2> /dev/null)" != "" ] ; then
-		echo "Using Previous RSA Keys"
-	else
-		echo "Generating New RSA Keys"
-		tincd -K4096 -c /etc/tinc/vpn </dev/null 2>/dev/null
-	fi
+  if [ "$(grep "BEGIN RSA PRIVATE KEY" /etc/tinc/vpn/rssa_key.priv 2> /dev/null)" != "" ] ; then
+    echo "Using Previous RSA Keys"
+  else
+    echo "Generating New RSA Keys"
+    tincd -K4096 -c /etc/tinc/vpn </dev/null 2>/dev/null
+  fi
 else
-	echo "Generating New RSA Keys"
-	tincd -K4096 -c /etc/tinc/vpn </dev/null 2>/dev/null
+  echo "Generating New RSA Keys"
+  tincd -K4096 -c /etc/tinc/vpn </dev/null 2>/dev/null
 fi
 
 #Generate Configs

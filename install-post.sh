@@ -23,11 +23,11 @@
 
 ## disable enterprise proxmox repo
 if [ -f /etc/apt/sources.list.d/pve-enterprise.list ]; then
-	echo -e "#deb https://enterprise.proxmox.com/debian/pve stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
+  echo -e "#deb https://enterprise.proxmox.com/debian/pve stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
 fi
 ## enable public proxmox repo
 if [ ! -f /etc/apt/sources.list.d/pve-public-repo.list ] && [ ! -f /etc/apt/sources.list.d/pve-install-repo.list ] ; then
-	echo -e "deb http://download.proxmox.com/debian/pve stretch pve-no-subscription\n" > /etc/apt/sources.list.d/pve-public-repo.list
+  echo -e "deb http://download.proxmox.com/debian/pve stretch pve-no-subscription\n" > /etc/apt/sources.list.d/pve-public-repo.list
 fi
 
 ## Add non-free to sources
@@ -141,9 +141,9 @@ chmod +x /bin/gzip
 
 ## Detect if this is an OVH server by getting the global IP and checking the ASN
 if [ "$(whois -h v4.whois.cymru.com " -t $(curl ipinfo.io/ip 2> /dev/null)" | tail -n 1 | cut -d'|' -f3 | grep -i "ovh")" != "" ] ; then
-	echo "Detected OVH Server, installing OVH RTM (real time monitoring)"
-	#http://help.ovh.co.uk/RealTimeMonitoring
-	wget ftp://ftp.ovh.net/made-in-ovh/rtm/install_rtm.sh -c -O install_rtm.sh && bash install_rtm.sh && rm install_rtm.sh
+  echo "Detected OVH Server, installing OVH RTM (real time monitoring)"
+  #http://help.ovh.co.uk/RealTimeMonitoring
+  wget ftp://ftp.ovh.net/made-in-ovh/rtm/install_rtm.sh -c -O install_rtm.sh && bash install_rtm.sh && rm install_rtm.sh
 fi
 
 ## Protect the web interface with fail2ban

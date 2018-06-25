@@ -72,11 +72,11 @@ fi
 
 #add the suffix pool to the poolname, prevent namepoolpool
 poolprefix=${poolname/pool/}
-poolname="${poolprefix}pool"  
+poolname="${poolprefix}pool"
 
 for zfsdevice in "${zfsdevicearray[@]}" ; do
   if ! [[ "$zfsdevice" =~ "/" ]] ; then
-    if ! [[ "$zfsdevice" =~ "-" ]] ; then 
+    if ! [[ "$zfsdevice" =~ "-" ]] ; then
       echo "ERROR: Invalid device specified: $zfsdevice"
       exit 1
     fi
@@ -87,8 +87,8 @@ for zfsdevice in "${zfsdevicearray[@]}" ; do
         echo "ERROR: Device $zfsdevice does not exist"
         exit 1
       fi
-    fi 
-  fi   
+    fi
+  fi
   if grep -q "$zfsdevice" "/proc/mounts" ; then
     echo "ERROR: Device is mounted $zfsdevice"
     exit 1
@@ -109,14 +109,14 @@ systemctl start zfs.target
 modprobe zfs
 
 if [ "$(zpool import 2> /dev/null | grep -m 1 -o "\s$poolname\b")" == "$poolname" ] ; then
-	echo "ERROR: $poolname already exists as an exported pool"
-	zpool import
-	exit 1
+  echo "ERROR: $poolname already exists as an exported pool"
+  zpool import
+  exit 1
 fi
 if [ "$(zpool list 2> /dev/null | grep -m 1 -o "\s$poolname\b")" == "$poolname" ] ; then
-	echo "ERROR: $poolname already exists as a listed pool"
-	zpool list
-	exit 1
+  echo "ERROR: $poolname already exists as a listed pool"
+  zpool list
+  exit 1
 fi
 
 echo "Creating the array"
@@ -143,14 +143,14 @@ elif [ "${#zfsdevicearray[@]}" -ge "11" ] ; then
 fi
 
 if [ $ret != 0 ] ; then
-	echo "ERROR: creating ZFS"
-	exit 1
+  echo "ERROR: creating ZFS"
+  exit 1
 fi
 
 if [ "$( zpool list | grep  "$poolname" | cut -f 1 -d " ")" != "$poolname" ] ; then
-	echo "ERROR: $poolname pool not found"
-	zpool list
-	exit 1
+  echo "ERROR: $poolname pool not found"
+  zpool list
+  exit 1
 fi
 
 echo "Creating Secondary ZFS Pools"
@@ -178,11 +178,11 @@ for zfspool in "${zfspoolarray[@]}" ; do
   zfs set atime=off "$zfspool"
   zfs set checksum=off "$zfspool"
   zfs set dedup=off "$zfspool"
-  
+
   echo "Adding weekly pool scrub for $zfspool"
   if [ ! -f "/etc/cron.weekly/${poolname}" ] ; then
     echo '#!/bin/bash' > "/etc/cron.weekly/${poolname}"
-  fi  
+  fi
   echo "zpool scrub $zfspool" >> "/etc/cron.weekly/${poolname}"
 done
 
@@ -193,7 +193,7 @@ if type "pvesm" >& /dev/null; then
   echo "-- ${poolname}-vmdata"
   pvesm add zfspool ${poolname}-vmdata --pool "${poolname}/vmdata" --sparse 1
   echo "-- ${poolname}-backup"
-  pvesm add dir ${poolname}-backup --path /backup_${poolprefix} 
+  pvesm add dir ${poolname}-backup --path /backup_${poolprefix}
 fi
 
 ### Work in progress , create specialised pools ###

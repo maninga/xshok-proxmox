@@ -52,43 +52,43 @@ fi
 mydev=$(mount | grep "$mypart" | cut -d " " -f 1)
 ret=$?
 if [ $ret == 0 ] ; then
- 	echo "Found partition, continuing"
- 	echo "$mydev" #/dev/mapper/pve-data
+   echo "Found partition, continuing"
+   echo "$mydev" #/dev/mapper/pve-data
 else
-	echo "ERROR: $mypart not found"
+  echo "ERROR: $mypart not found"
 fi
 
 if [ "$(which zpool)" == "" ] ; then
-	echo "ERROR: ZFS not installed"
-	exit 1
+  echo "ERROR: ZFS not installed"
+  exit 1
 fi
 
 myraid=$(pvdisplay 2> /dev/null  | sed -n -e 's/^.*\/dev\///p')
 ret=$?
 if [ $ret == 0 ] ; then
-	 echo "Found raid, continuing"
-	 echo "$myraid" #md5
+   echo "Found raid, continuing"
+   echo "$myraid" #md5
 else
-	echo "ERROR: $myraid not found"
-	exit 1
+  echo "ERROR: $myraid not found"
+  exit 1
 fi
 
 #pve/data
 mylv=$(lvdisplay "$mydev" 2> /dev/null | sed -n -e 's/^.*\/dev\///p')
 ret=$?
 if [ $ret == 0 ] ; then
-	echo "Found lv, continuing"
-	echo "$mylv" #sda1
+  echo "Found lv, continuing"
+  echo "$mylv" #sda1
 else
-	echo "ERROR: $mylv not found"
-	exit 1
+  echo "ERROR: $mylv not found"
+  exit 1
 fi
 
 IFS=' ' read -r -a mddevarray <<< "$(grep "$myraid :" /proc/mdstat | cut -d ' ' -f5- | xargs)"
 
 if [ "${mddevarray[0]}" == "" ] ; then
-	echo "ERROR: no devices found for $myraid in /proc/mdstat"
-	exit 1
+  echo "ERROR: no devices found for $myraid in /proc/mdstat"
+  exit 1
 fi
 #check there is a minimum of 1 drives detected, not needed, but i rather have it.
 if [ "${#mddevarray[@]}" -lt "1" ] ; then
@@ -97,10 +97,10 @@ if [ "${#mddevarray[@]}" -lt "1" ] ; then
 fi
 
 if [ "$mydev" != "" ] && [ "$myraid" != "" ] && [ "$mylv" != "" ] ; then
-	echo "All required varibles detected"
+  echo "All required varibles detected"
 else
-	echo "ERROR: required varible not found or the server is already converted to zfs"
-	exit 1
+  echo "ERROR: required varible not found or the server is already converted to zfs"
+  exit 1
 fi
 
 # remove [*] and /dev/ to each record
@@ -148,8 +148,8 @@ elif [ "${#mddevarray[@]}" -ge "11" ] ; then
 fi
 
 if [ $ret != 0 ] ; then
-	echo "ERROR: creating ZFS"
-	exit 1
+  echo "ERROR: creating ZFS"
+  exit 1
 fi
 
 echo "Creating Secondary ZFS Pools"
