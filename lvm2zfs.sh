@@ -156,17 +156,15 @@ zfs create rpool/vmdata
 zfs create -o mountpoint=/backup rpool/backup
 zpool export rpool
 
-## set vzdump temp dir to use the /backup/tmp
-mkdir -p /backup/tmp
-sed -i "s|tmpdir: /var/lib/vz/tmp_backup|tmpdir: /backup/tmp|" /etc/vzdump.conf
-
 echo "Cleaning up fstab / mounts"
 #/dev/pve/data   /var/lib/vz     ext3    defaults        1       2
 grep -v "$mypart" /etc/fstab > /tmp/fstab.new && mv /tmp/fstab.new /etc/fstab
 
-echo "Adding the ZFS storage pools to Proxmox GUI"
-pvesm add dir backup -pool rpool/backup
-pvesm add zfspool zfsvmdata -pool rpool/vmdata
+# echo "Adding the ZFS storage pools to Proxmox GUI"
+# pvesm add dir backup -pool rpool/backup
+# pvesm add dir backup --path /backup
+# pvesm add zfspool zfsbackup -pool rpool/backup
+# pvesm add zfspool zfsvmdata -pool rpool/vmdata
 
 #pvesm add zfspool zfsrpool -pool rpool
 
@@ -182,6 +180,10 @@ for zfspool in "${zfspoolarray[@]}" ; do
   zfs set checksum=off "$zfspool"
   zfs set dedup=off "$zfspool"
 done
+
+## set vzdump temp dir to use the /backup/tmp
+mkdir -p /backup/tmp
+sed -i "s|tmpdir: /var/lib/vz/tmp_backup|tmpdir: /backup/tmp|" /etc/vzdump.conf
 
 #script Finish
 echo -e '\033[1;33m Finished....please restart the server \033[0m'
