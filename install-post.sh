@@ -14,17 +14,12 @@
 ################################################################################
 #
 # Assumptions: proxmox installed
-# Recommeneded partitioning scheme:
-# Raid 1 / 100GB ext4
-# 2x swap 8192mb (16384mb total)
-# Remaining unpartitioned
 #
 ################################################################################
 #
-#    THERE ARE  USER CONFIGURABLE OPTIONS IN THIS SCRIPT
-#   ALL CONFIGURATION OPTIONS ARE LOCATED BELOW THIS MESSAGE
+#    THERE ARE NO USER CONFIGURABLE OPTIONS IN THIS SCRIPT
 #
-##############################################################
+################################################################################
 
 ## disable enterprise proxmox repo
 if [ -f /etc/apt/sources.list.d/pve-enterprise.list ]; then
@@ -42,7 +37,7 @@ sed -i "s/main\( contrib\)\?$/main contrib non-free/g" /etc/apt/sources.list
 apt-get update
 
 ## Fix no public key error for debian repo
-apt-get -y install debian-archive-keyring
+apt-get install -y debian-archive-keyring
 
 ## Update proxmox and install various system utils
 apt-get -y dist-upgrade # --force-yes
@@ -62,12 +57,75 @@ apt-get install -y openvswitch-switch
 ## Install zfs support, appears to be missing on some Proxmox installs.
 apt-get install -y zfsutils
 
+## Install missing ksmtuned
+apt-get install -y ksmtuned
+systemctl enable ksmtuned
+
 # ## Install the latest ceph provided by proxmox
 echo y | pveceph install --version luminous
 
 ## Install common system utilities
-apt-get install -y whois omping wget axel nano ntp pigz net-tools htop iptraf iotop iftop iperf vim vim-nox screen unzip zip software-properties-common aptitude curl dos2unix dialog mlocate build-essential git
+apt-get install -y whois omping wget axel nano pigz net-tools htop iptraf iotop iftop iperf vim vim-nox screen unzip zip software-properties-common aptitude curl dos2unix dialog mlocate build-essential git
 #snmpd snmp-mibs-downloader
+
+## Remove conflicting utilities
+apt-get purge -y ntp openntpd chrony
+
+## Detect AMD EPYC CPU and install kernel 4.15
+if [ "$(cat /proc/cpuinfo | grep -i -m 1 "model name" | grep -i "EPYC")" != "" ]; then
+  echo "AMD EPYC detected"
+  #Apply EPYC fix to kernel : Fixes random crashing and instability
+  if ! cat /etc/default/grub | grep "GRUB_CMDLINE_LINUX_DEFAULT" | grep -q "idle=nomwait" ; then
+    echo "Setting kernel idle=nomwait"
+    sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="/GRUB_CMDLINE_LINUX_DEFAULT="idle=nomwait /g' /etc/default/grub
+    update-grub
+  fi
+  echo "Installing kernel 4.15"
+  apt-get install -y pve-kernel-4.15
+fi
+
+## Install kexec, allows for quick reboots into the latest updated kernel set as primary in the boot-loader.
+# use command 'reboot-quick'
+echo "kexec-tools kexec-tools/load_kexec boolean false" | debconf-set-selections
+apt-get install -y kexec-tools
+
+cat > /etc/systemd/system/kexec-pve.service <<EOF
+[Unit]
+Description=boot into into the latest pve kernel set as primary in the boot-loader
+Documentation=man:kexec(8)
+DefaultDependencies=no
+Before=shutdown.target umount.target final.target
+
+[Service]
+Type=oneshot
+ExecStart=/sbin/kexec -l /boot/pve/vmlinuz --initrd=/boot/pve/initrd.img --reuse-cmdline
+
+[Install]
+WantedBy=kexec.target
+EOF
+systemctl enable kexec-pve.service
+echo "alias reboot-quick='systemctl kexec'" >> /root/.bash_profile
+
+## Remove no longer required packages and purge old cached updates
+apt-get autoremove -y
+apt-get autoclean -y
+
+## Disable portmapper / rpcbind (security)
+systemctl disable rpcbind
+systemctl stop rpcbind
+
+## Set Timezone to UTC and enable NTP
+timedatectl set-timezone UTC
+echo > /etc/systemd/timesyncd.conf <<EOF
+[Time]
+NTP=0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org
+FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+RootDistanceMaxSec=5
+PollIntervalMinSec=32
+PollIntervalMaxSec=2048
+EOF
+service systemd-timesyncd start
+timedatectl set-ntp true
 
 ## Set pigz to replace gzip, 2x faster gzip compression
 cat > /bin/pigzwrapper <<EOF
@@ -106,18 +164,19 @@ maxretry = 3
 bantime = 3600
 EOF
 systemctl enable fail2ban
-systemctl restart fail2ban
 ##testing
 #fail2ban-regex /var/log/daemon.log /etc/fail2ban/filter.d/proxmox.conf
 
 ## Increase vzdump backup speed
-sed -i "s/#bwlimit: KBPS/bwlimit: 1024000/" /etc/vzdump.conf
+sed -i "s/#bwlimit: KBPS/bwlimit: 10240000/" /etc/vzdump.conf
 
 ## Remove subscription banner
+sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
 sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
 # create a daily cron to make sure the banner does not re-appear
 cat > /etc/cron.daily/proxmox-nosub <<EOF
 #!/bin/sh
+sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
 sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
 EOF
 chmod 755 /etc/cron.daily/proxmox-nosub
@@ -125,21 +184,13 @@ chmod 755 /etc/cron.daily/proxmox-nosub
 # ## Pretty MOTD
 # if ! grep -q https "/etc/motd" ; then
 # cat > /etc/motd.new <<'EOF'
-#    This system is managed by:            https://eXtremeSHOK.com
+#    This system is optimised by:            https://eXtremeSHOK.com
 #      __   ___                            _____ _    _  ____  _  __
 #      \ \ / / |                          / ____| |  | |/ __ \| |/ /
 #   ___ \ V /| |_ _ __ ___ _ __ ___   ___| (___ | |__| | |  | | ' /
 #  / _ \ > < | __| '__/ _ \ '_ ` _ \ / _ \\___ \|  __  | |  | |  <
 # |  __// . \| |_| | |  __/ | | | | |  __/____) | |  | | |__| | . \
 #  \___/_/ \_\\__|_|  \___|_| |_| |_|\___|_____/|_|  |_|\____/|_|\_\
-#
-#
-# EOF
-# 	cat /etc/motd >> /etc/motd.new
-# 	mv /etc/motd.new /etc/motd
-# fi
-
-# System tuning
 
 ## Bugfix: pve 5.1 high swap usage with low memory usage
 cat <<'EOF' >> /etc/sysctl.conf
@@ -200,4 +251,4 @@ kernel.keys.maxkeys = 1000000
 EOF
 
 ## Script Finish
-echo -e '\033[1;33m Finished....please restart the server \033[0m'
+echo -e '\033[1;33m Finished....please restart the system \033[0m'

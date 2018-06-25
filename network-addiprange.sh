@@ -17,15 +17,15 @@
 # NOTE: WILL APPLY CHANGES TO /etc/network/interfaces
 #
 # Usage:
-# curl -O https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/addiprange.sh && chmod +x addiprange.sh
-# ./addiprange.sh ip.xx.xx.xx/cidr interface_optionakl
+# curl -O https://raw.githubusercontent.com/extremeshok/xshok-proxmox/master/network-addiprange.sh && chmod +x network-addiprange.sh
+# ./network-addiprange.sh ip.xx.xx.xx/cidr interface_optional
+# ./network-addiprange.sh ip.xx.xx.xx interface_optional
 #
 # If no interface is specified the default gateway interface will be used.
 #
 ################################################################################
 #
-#    THERE ARE  USER CONFIGURABLE OPTIONS IN THIS SCRIPT
-#   ALL CONFIGURATION OPTIONS ARE LOCATED BELOW THIS MESSAGE
+#    THERE ARE NO USER CONFIGURABLE OPTIONS IN THIS SCRIPT
 #
 ##############################################################
 
@@ -38,8 +38,8 @@ else
 	ipwithcidr=$1
 fi
 if ! [[ "$ipwithcidr" =~ "/" ]] ; then
-  echo "ERROR: IP missing cidr, use xxx.xxx.xxx.xxx/xx format: $ipwithcidr"
-  exit 1
+  echo "Info: IP missing cidr, assigning default: 32"
+  cidr="32"
 else
 	networkip=${ipwithcidr%/*}
 	cidr=${ipwithcidr##*/}
@@ -99,7 +99,6 @@ else
 	echo "Route is already active"
 fi
 
-#add the route, so we do not need to restart
 if [ -w "/etc/network/interfaces" ] ; then
 	if ! grep -q "up route add -net $networkip netmask $netmask dev $gatewaydev" "/etc/network/interfaces" ; then
 		echo "Permantly added the route"

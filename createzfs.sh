@@ -9,6 +9,9 @@
 #
 # Will create a ZFS pool from the devices specified with the correct raid level
 #
+# Note: compatible with all debian based distributions
+# If proxmox is detected, it will add the pools to the storage system
+#
 # License: BSD (Berkeley Software Distribution)
 #
 ################################################################################
@@ -41,9 +44,13 @@
 poolname=${1}
 zfsdevicearray=("${@:2}")
 
+#Detect and install dependencies
 if ! type "zpool" >& /dev/null; then
-  echo "zfs is not avilable"
-  exit 1
+  apt-get install -y zfsutils-linux
+  modprobe zfs
+fi
+if ! type "parted" >& /dev/null; then
+  apt-get install -y parted
 fi
 
 #check arguments
@@ -147,17 +154,21 @@ if [ "$( zpool list | grep  "$poolname" | cut -f 1 -d " ")" != "$poolname" ] ; t
 fi
 
 echo "Creating Secondary ZFS Pools"
-zfs create -o mountpoint="/vmdata_${poolprefix}" "${poolname}/vmdata"
+echo "-- ${poolname}/vmdata"
+zfs create "${poolname}/vmdata"
+echo "-- ${poolname}/backup (/backup_${poolprefix})"
 zfs create -o mountpoint="/backup_${poolprefix}" "${poolname}/backup"
+echo "-- ${poolname}/tmp (/tmp_${poolprefix})"
+zfs create -o setuid=off -o devices=off -o mountpoint="/tmp_${poolprefix}"  "${poolname}/tmp"
 
-if type "pvesm" >& /dev/null; then
-  echo "Adding the ZFS storage pools to Proxmox GUI"
-  pvesm add dir "${poolname}backup" "/backup_${poolprefix}"
-  pvesm add zfspool "${poolname}vmdata" -pool "${poolname}/vmdata" -sparse true
-fi
+#export the pool
+zpool export "${poolname}"
+sleep 10
+zpool import "${poolname}"
+sleep 5
 
 echo "Setting ZFS Optimisations"
-zfspoolarray=("$poolname" "${poolname}/vmdata" "${poolname}/backup")
+zfspoolarray=("$poolname" "${poolname}/vmdata" "${poolname}/backup" "${poolname}/tmp")
 for zfspool in "${zfspoolarray[@]}" ; do
   echo "Optimising $zfspool"
   zfs set compression=on "$zfspool"
@@ -174,6 +185,16 @@ for zfspool in "${zfspoolarray[@]}" ; do
   fi  
   echo "zpool scrub $zfspool" >> "/etc/cron.weekly/${poolname}"
 done
+
+# pvesm (proxmox) is optional
+if type "pvesm" >& /dev/null; then
+  # https://pve.proxmox.com/pve-docs/pvesm.1.html
+  echo "Adding the ZFS storage pools to Proxmox GUI"
+  echo "-- ${poolname}-vmdata"
+  pvesm add zfspool ${poolname}-vmdata --pool "${poolname}/vmdata" --sparse 1
+  echo "-- ${poolname}-backup"
+  pvesm add dir ${poolname}-backup --path /backup_${poolprefix} 
+fi
 
 ### Work in progress , create specialised pools ###
 # echo "ZFS 8GB swap partition"

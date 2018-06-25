@@ -36,17 +36,18 @@
 #
 ################################################################################
 #
-#    THERE ARE  USER CONFIGURABLE OPTIONS IN THIS SCRIPT
-#   ALL CONFIGURATION OPTIONS ARE LOCATED BELOW THIS MESSAGE
+#    THERE ARE NO USER CONFIGURABLE OPTIONS IN THIS SCRIPT
 #
-##############################################################
+################################################################################
 
 # The default LVM mount which will be replaced with ZFS
 mypart="/var/lib/vz"
 
-#install zfs and enable
-apt-get install -y zfsutils-linux
-modprobe zfs
+#Detect and install dependencies
+if ! type "zpool" >& /dev/null; then
+  apt-get install -y zfsutils-linux
+  modprobe zfs
+fi
 
 mydev=$(mount | grep "$mypart" | cut -d " " -f 1)
 ret=$?
@@ -152,24 +153,25 @@ if [ $ret != 0 ] ; then
 fi
 
 echo "Creating Secondary ZFS Pools"
+echo "-- rpool/vmdata"
 zfs create rpool/vmdata
-zfs create -o mountpoint=/backup rpool/backup
+echo "-- rpool/backup (/backup_rpool)"
+zfs create -o mountpoint=/backup_rpool rpool/backup
+echo "-- rpool/tmp (/tmp_rpool)"
+zfs create -o setuid=off -o devices=off -o mountpoint=/tmp_rpool rpool/tmp
+
+#export the pool
 zpool export rpool
+sleep 5
+zpool import rpool
+sleep 5
 
 echo "Cleaning up fstab / mounts"
 #/dev/pve/data   /var/lib/vz     ext3    defaults        1       2
 grep -v "$mypart" /etc/fstab > /tmp/fstab.new && mv /tmp/fstab.new /etc/fstab
 
-# echo "Adding the ZFS storage pools to Proxmox GUI"
-# pvesm add dir backup -pool rpool/backup
-# pvesm add dir backup --path /backup
-# pvesm add zfspool zfsbackup -pool rpool/backup
-# pvesm add zfspool zfsvmdata -pool rpool/vmdata
-
-#pvesm add zfspool zfsrpool -pool rpool
-
 echo "Setting ZFS Optimisations"
-zfspoolarray=("rpool" "rpool/vmdata" "rpool/backup")
+zfspoolarray=("rpool" "rpool/vmdata" "rpool/backup" "rpool/tmp")
 for zfspool in "${zfspoolarray[@]}" ; do
   echo "Optimising $zfspool"
   zfs set compression=on "$zfspool"
@@ -179,11 +181,28 @@ for zfspool in "${zfspoolarray[@]}" ; do
   zfs set atime=off "$zfspool"
   zfs set checksum=off "$zfspool"
   zfs set dedup=off "$zfspool"
+
+  echo "Adding weekly pool scrub for ${zfspool}"
+  if [ ! -f "/etc/cron.weekly/rpool" ] ; then
+    echo '#!/bin/bash' > "/etc/cron.weekly/rpool"
+  fi
+  echo "zpool scrub ${zfspool}" >> "/etc/cron.weekly/rpool"
+
 done
 
-## set vzdump temp dir to use the /backup/tmp
-mkdir -p /backup/tmp
-sed -i "s|tmpdir: /var/lib/vz/tmp_backup|tmpdir: /backup/tmp|" /etc/vzdump.conf
+if [ -f "/etc/vzdump.conf" ]; then
+  echo "set vzdump temp dir to use the /tmp_rpool"
+  sed -i "s|tmpdir: /var/lib/vz/tmp_backup|tmpdir: /tmp_rpool|" /etc/vzdump.conf
+fi
+
+if type "pvesm" >& /dev/null; then
+  # https://pve.proxmox.com/pve-docs/pvesm.1.html
+  echo "Adding the ZFS storage pools to Proxmox GUI"
+  echo "-- rpool-vmdata"
+  pvesm add zfspool rpool-vmdata --pool rpool/vmdata --sparse 1
+  echo "-- rpool-backup"
+  pvesm add dir rpool-backup --path /backup_rpool
+fi
 
 #script Finish
 echo -e '\033[1;33m Finished....please restart the server \033[0m'
