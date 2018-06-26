@@ -40,11 +40,12 @@ sysctl -p /etc/sysctl.conf
 
 ## disable enterprise proxmox repo
 if [ -f /etc/apt/sources.list.d/pve-enterprise.list ]; then
-  echo -e "#deb https://enterprise.proxmox.com/debian/pve stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
+  echo -e "# deb https://enterprise.proxmox.com/debian/pve stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
 fi
 ## enable public proxmox repo
 if [ ! -f /etc/apt/sources.list.d/pve-public-repo.list ] || [ ! -f /etc/apt/sources.list.d/pve-install-repo.list ] ; then
-  rm -f /etc/apt/sources.list.d/pve-install-repo.list
+  echo -e "# deb http://download.proxmox.com/debian stretch pvetest" > /etc/apt/sources.list.d/pve-install-repo.list
+  echo -e "# deb http://download.proxmox.com/debian stretch pve-no-subscription" >> /etc/apt/sources.list.d/pve-install-repo.list
   echo -e "deb http://download.proxmox.com/debian/pve stretch pve-no-subscription\n" > /etc/apt/sources.list.d/pve-public-repo.list
 fi
 
@@ -187,12 +188,10 @@ sed -i "s/#bwlimit: KBPS/bwlimit: 10240000/" /etc/vzdump.conf
 
 ## Remove subscription banner
 sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
-sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
 # create a daily cron to make sure the banner does not re-appear
 cat > /etc/cron.daily/proxmox-nosub <<EOF
 #!/bin/sh
 sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/javascript/proxmox-widget-toolkit/proxmoxlib.js
-sed -i "s|if (data.status !== 'Active')|if (data.status === 'Active')|g" /usr/share/pve-manager/js/pvemanagerlib.js
 EOF
 chmod 755 /etc/cron.daily/proxmox-nosub
 
@@ -264,8 +263,6 @@ cat <<'EOF' > /etc/sysctl.d/60-maxkeys.conf
 kernel.keys.root_maxkeys = 1000000
 kernel.keys.maxkeys = 1000000
 EOF
-
-sysctl -p /etc/sysctl.conf
 
 ## Script Finish
 echo -e '\033[1;33m Finished....please restart the system \033[0m'
