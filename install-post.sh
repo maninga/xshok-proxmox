@@ -21,12 +21,30 @@
 #
 ################################################################################
 
+## Disable IPV6 for all interfaces
+cat <<'EOF' > /etc/sysctl.conf
+# désactivation de ipv6 pour toutes les interfaces
+net.ipv6.conf.all.disable_ipv6 = 1
+
+# désactivation de l’auto configuration pour toutes les interfaces
+net.ipv6.conf.all.autoconf = 0
+
+# désactivation de ipv6 pour les nouvelles interfaces (ex:si ajout de carte réseau)
+net.ipv6.conf.default.disable_ipv6 = 1
+
+# désactivation de l’auto configuration pour les nouvelles interfaces
+net.ipv6.conf.default.autoconf = 0
+EOF
+
+sysctl -p /etc/sysctl.conf
+
 ## disable enterprise proxmox repo
 if [ -f /etc/apt/sources.list.d/pve-enterprise.list ]; then
   echo -e "#deb https://enterprise.proxmox.com/debian/pve stretch pve-enterprise\n" > /etc/apt/sources.list.d/pve-enterprise.list
 fi
 ## enable public proxmox repo
-if [ ! -f /etc/apt/sources.list.d/pve-public-repo.list ] && [ ! -f /etc/apt/sources.list.d/pve-install-repo.list ] ; then
+if [ ! -f /etc/apt/sources.list.d/pve-public-repo.list ] || [ ! -f /etc/apt/sources.list.d/pve-install-repo.list ] ; then
+  rm -f /etc/apt/sources.list.d/pve-install-repo.list
   echo -e "deb http://download.proxmox.com/debian/pve stretch pve-no-subscription\n" > /etc/apt/sources.list.d/pve-public-repo.list
 fi
 
@@ -43,9 +61,6 @@ apt-get install -y debian-archive-keyring
 apt-get -y dist-upgrade # --force-yes
 
 pveam update
-
-## Fix no public key error for debian repo
-# apt-get -y install debian-archive-keyring
 
 ## Remove no longer required packages and purge old cached updates
 apt-get -y autoremove
@@ -114,12 +129,12 @@ apt-get autoclean -y
 systemctl disable rpcbind
 systemctl stop rpcbind
 
-## Set Timezone to UTC and enable NTP
-timedatectl set-timezone UTC
+## Set Timezone to Europe/Paris and enable NTP
+timedatectl set-timezone Europe/Paris
 echo > /etc/systemd/timesyncd.conf <<EOF
 [Time]
-NTP=0.pool.ntp.org 1.pool.ntp.org 2.pool.ntp.org 3.pool.ntp.org
-FallbackNTP=0.debian.pool.ntp.org 1.debian.pool.ntp.org 2.debian.pool.ntp.org 3.debian.pool.ntp.org
+NTP=0.fr.pool.ntp.org 1.fr.pool.ntp.org 2.fr.pool.ntp.org 3.fr.pool.ntp.org
+FallbackNTP=0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org 3.europe.pool.ntp.org
 RootDistanceMaxSec=5
 PollIntervalMinSec=32
 PollIntervalMaxSec=2048
@@ -249,6 +264,8 @@ cat <<'EOF' > /etc/sysctl.d/60-maxkeys.conf
 kernel.keys.root_maxkeys = 1000000
 kernel.keys.maxkeys = 1000000
 EOF
+
+sysctl -p /etc/sysctl.conf
 
 ## Script Finish
 echo -e '\033[1;33m Finished....please restart the system \033[0m'
