@@ -22,7 +22,7 @@
 ################################################################################
 
 ## Disable IPV6 for all interfaces
-cat <<'EOF' > /etc/sysctl.conf
+cat <<'EOF' >> /etc/sysctl.conf
 # désactivation de ipv6 pour toutes les interfaces
 net.ipv6.conf.all.disable_ipv6 = 1
 
@@ -132,7 +132,7 @@ systemctl stop rpcbind
 
 ## Set Timezone to Europe/Paris and enable NTP
 timedatectl set-timezone Europe/Paris
-echo > /etc/systemd/timesyncd.conf <<EOF
+cat > /etc/systemd/timesyncd.conf <<EOF
 [Time]
 NTP=0.fr.pool.ntp.org 1.fr.pool.ntp.org 2.fr.pool.ntp.org 3.fr.pool.ntp.org
 FallbackNTP=0.europe.pool.ntp.org 1.europe.pool.ntp.org 2.europe.pool.ntp.org 3.europe.pool.ntp.org
