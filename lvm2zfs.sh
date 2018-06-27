@@ -42,6 +42,7 @@
 
 # The default LVM mount which will be replaced with ZFS
 mypart="/var/lib/vz"
+echo "mypart=$mypart"
 
 #Detect and install dependencies
 if ! type "zpool" >& /dev/null; then
@@ -53,7 +54,7 @@ mydev=$(mount | grep "$mypart" | cut -d " " -f 1)
 ret=$?
 if [ $ret == 0 ] ; then
    echo "Found partition, continuing"
-   echo "$mydev" #/dev/mapper/pve-data
+   echo "mydev=$mydev" #/dev/mapper/pve-data
 else
   echo "ERROR: $mypart not found"
 fi
@@ -67,7 +68,7 @@ myraid=$(pvdisplay 2> /dev/null  | sed -n -e 's/^.*\/dev\///p')
 ret=$?
 if [ $ret == 0 ] ; then
    echo "Found raid, continuing"
-   echo "$myraid" #md5
+   echo "myraid=$myraid" #md5
 else
   echo "ERROR: $myraid not found"
   exit 1
@@ -78,7 +79,7 @@ mylv=$(lvdisplay "$mydev" 2> /dev/null | sed -n -e 's/^.*\/dev\///p')
 ret=$?
 if [ $ret == 0 ] ; then
   echo "Found lv, continuing"
-  echo "$mylv" #sda1
+  echo "mylv=$mylv" #sda1
 else
   echo "ERROR: $mylv not found"
   exit 1
@@ -111,15 +112,20 @@ for index in "${!mddevarray[@]}" ; do
 done
 
 echo "Destroying LV (logical volume)"
+echo umount -l "$mypart"
 umount -l "$mypart"
+echo lvremove "/dev/$mylv" -y 2> /dev/null
 lvremove "/dev/$mylv" -y 2> /dev/null
 
 echo "Destroying MD (linux raid)"
+echo mdadm --stop "/dev/$myraid"
 mdadm --stop "/dev/$myraid"
+echo mdadm --remove "/dev/$myraid"
 mdadm --remove "/dev/$myraid"
 
 for mydev in "${mddevarray[@]}" ; do
     echo "zeroing $mydev"
+    echo mdadm --zero-superblock "$mydev"
     mdadm --zero-superblock "$mydev"
 done
 
@@ -127,22 +133,27 @@ done
 # #lvcreate -n ZFS pve -l 100%FREE -y
 if [ "${#mddevarray[@]}" -eq "1" ] ; then
   echo "Creating ZFS mirror (raid1)"
+  echo zpool create -f -o ashift=12 -O compression=lz4 rpool "${mddevarray[@]}"
   zpool create -f -o ashift=12 -O compression=lz4 rpool "${mddevarray[@]}"
   ret=$?
 elif [ "${#mddevarray[@]}" -eq "2" ] ; then
   echo "Creating ZFS mirror (raid1)"
+  echo zpool create -f -o ashift=12 -O compression=lz4 rpool mirror "${mddevarray[@]}"
   zpool create -f -o ashift=12 -O compression=lz4 rpool mirror "${mddevarray[@]}"
   ret=$?
 elif [ "${#mddevarray[@]}" -ge "3" ] && [ "${#mddevarray[@]}" -le "5" ] ; then
   echo "Creating ZFS raidz-1 (raid5)"
+  echo zpool create -f -o ashift=12 -O compression=lz4 rpool raidz "${mddevarray[@]}"
   zpool create -f -o ashift=12 -O compression=lz4 rpool raidz "${mddevarray[@]}"
   ret=$?
 elif [ "${#mddevarray[@]}" -ge "6" ] && [ "${#mddevarray[@]}" -lt "11" ] ; then
   echo "Creating ZFS raidz-2 (raid6)"
+  echo zpool create -f -o ashift=12 -O compression=lz4 rpool raidz2 "${mddevarray[@]}"
   zpool create -f -o ashift=12 -O compression=lz4 rpool raidz2 "${mddevarray[@]}"
   ret=$?
 elif [ "${#mddevarray[@]}" -ge "11" ] ; then
   echo "Creating ZFS raidz-3 (raid7)"
+  echo zpool create -f -o ashift=12 -O compression=lz4 rpool raidz3 "${mddevarray[@]}"
   zpool create -f -o ashift=12 -O compression=lz4 rpool raidz3 "${mddevarray[@]}"
   ret=$?
 fi
@@ -154,16 +165,23 @@ fi
 
 echo "Creating Secondary ZFS Pools"
 echo "-- rpool/vmdata"
+echo zfs create rpool/vmdata
 zfs create rpool/vmdata
 echo "-- rpool/backup (/backup_rpool)"
+echo zfs create -o mountpoint=/backup_rpool rpool/backup
 zfs create -o mountpoint=/backup_rpool rpool/backup
 echo "-- rpool/tmp (/tmp_rpool)"
+echo zfs create -o setuid=off -o devices=off -o mountpoint=/tmp_rpool rpool/tmp
 zfs create -o setuid=off -o devices=off -o mountpoint=/tmp_rpool rpool/tmp
 
 #export the pool
+echo zpool export rpool
 zpool export rpool
+echo sleep 5
 sleep 5
+echo zpool import rpool
 zpool import rpool
+echo sleep 5
 sleep 5
 
 echo "Cleaning up fstab / mounts"
@@ -174,12 +192,19 @@ echo "Setting ZFS Optimisations"
 zfspoolarray=("rpool" "rpool/vmdata" "rpool/backup" "rpool/tmp")
 for zfspool in "${zfspoolarray[@]}" ; do
   echo "Optimising $zfspool"
+  echo zfs set compression=on "$zfspool"
   zfs set compression=on "$zfspool"
+  echo zfs set compression=lz4 "$zfspool"
   zfs set compression=lz4 "$zfspool"
+  echo zfs set sync=disabled "$zfspool"
   zfs set sync=disabled "$zfspool"
+  echo zfs set primarycache=all "$zfspool"
   zfs set primarycache=all "$zfspool"
+  echo zfs set atime=off "$zfspool"
   zfs set atime=off "$zfspool"
+  echo zfs set checksum=off "$zfspool"
   zfs set checksum=off "$zfspool"
+  echo zfs set dedup=off "$zfspool"
   zfs set dedup=off "$zfspool"
 
   echo "Adding weekly pool scrub for ${zfspool}"
@@ -199,8 +224,10 @@ if type "pvesm" >& /dev/null; then
   # https://pve.proxmox.com/pve-docs/pvesm.1.html
   echo "Adding the ZFS storage pools to Proxmox GUI"
   echo "-- rpool-vmdata"
+  echo pvesm add zfspool rpool-vmdata --pool rpool/vmdata --sparse 1
   pvesm add zfspool rpool-vmdata --pool rpool/vmdata --sparse 1
   echo "-- rpool-backup"
+  echo pvesm add dir rpool-backup --path /backup_rpool
   pvesm add dir rpool-backup --path /backup_rpool
 fi
 
